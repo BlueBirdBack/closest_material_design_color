@@ -2,6 +2,7 @@ import argparse
 import numpy as np
 from PIL import ImageColor
 import colorsys
+import colorgram
 
 # 2014 Material Design color palettes
 # https://m2.material.io/design/color/the-color-system.html#tools-for-picking-colors
@@ -319,23 +320,64 @@ def closest_material_color(hex_input_color):
     return closest_color
 
 
-# Command-line interface using argparse
+def rgb_to_hex(rgb):
+    return "#{:02x}{:02x}{:02x}".format(rgb[0], rgb[1], rgb[2])
+
+
+def process_image(image_path):
+    colors = colorgram.extract(image_path, 6)
+
+    dominant_color = colors[0].rgb
+    dominant_hex = rgb_to_hex(dominant_color)
+    closest_dominant = closest_material_color(dominant_hex)
+
+    palette_results = []
+    for color in colors:
+        hex_color = rgb_to_hex(color.rgb)
+        closest = closest_material_color(hex_color)
+        palette_results.append((hex_color, closest))
+
+    return dominant_hex, closest_dominant, palette_results
+
+
 def main():
     parser = argparse.ArgumentParser(
-        description="Find the closest Material Design color to the given hex or RGB color."
+        description="Find the closest Material Design color to the given color or image."
     )
-    parser.add_argument(
-        "color", type=str, help="The input color in hex format (e.g., #E3E0CA)."
+    group = parser.add_mutually_exclusive_group(required=True)
+    group.add_argument(
+        "--hex", type=str, help="The input color in hex format (e.g., #E3E0CA)"
     )
+    group.add_argument(
+        "--rgb",
+        type=int,
+        nargs=3,
+        metavar=("R", "G", "B"),
+        help="The input color in RGB format (e.g., 227 224 202)",
+    )
+    group.add_argument("--image", type=str, help="Path to an image file")
 
     args = parser.parse_args()
 
-    closest_color = closest_material_color(args.color)
-
-    if closest_color:
-        print(f"The closest Material Design color to {args.color} is {closest_color}.")
+    if args.hex:
+        input_color = args.hex
+    elif args.rgb:
+        input_color = rgb_to_hex(args.rgb)
     else:
-        print("No valid closest color found.")
+        try:
+            dominant_hex, closest_dominant, palette_results = process_image(args.image)
+            print(f"Dominant Color: {dominant_hex}")
+            print(f"Closest Material Design color to dominant: {closest_dominant}")
+            print("Color Palette:")
+            for hex_color, closest in palette_results:
+                print(f"  {hex_color} - Closest: {closest}")
+            return
+        except Exception as e:
+            print(f"Error processing image: {e}")
+            return
+
+    closest_color = closest_material_color(input_color)
+    print(f"The closest Material Design color to {input_color} is {closest_color}.")
 
 
 if __name__ == "__main__":
